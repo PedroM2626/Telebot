@@ -1,0 +1,8 @@
+# Ignore .env files
+.env
+# Diretório de arquivos temporários
+tmp/
+# Bundler
+.bundle/
+# Arquivos do sistema
+*.swp
