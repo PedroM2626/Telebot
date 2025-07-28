@@ -1,4 +1,4 @@
-# Aponte para o bundle de certificados antes de qualquer require que faça HTTPS
+# Aponte para o bundle de certificados antes de qualquer require HTTPS
 ENV['SSL_CERT_FILE'] ||= 'C:\\cacert.pem'
 
 require 'dotenv/load'      # Carrega .env para ENV
@@ -16,12 +16,22 @@ require 'tmpdir'
 TOKEN = ENV.fetch('TELEBOT_TOKEN')
 
 module UtilTools
-  def self.download_youtube(url, format: 'mp4')
-    path = File.join(Dir.tmpdir, "yt_#{SecureRandom.hex}.#{format}")
-    stdout, stderr, status = Open3.capture3('yt-dlp', '-f', format, '-o', path, url)
+  # Baixa do YouTube em MP4 ou extrai o áudio em MP3
+  def self.download_youtube(url, audio_only: false)
+    format = audio_only ? 'bestaudio[ext=m4a]' : 'mp4'
+    ext    = audio_only ? 'mp3' : 'mp4'
+    tmp    = File.join(Dir.tmpdir, "yt_#{SecureRandom.hex}.#{ext}")
+
+    cmd = if audio_only
+      ['yt-dlp', '-f', format, '-x', '--audio-format', 'mp3', '-o', tmp, url]
+    else
+      ['yt-dlp', '-f', format, '-o', tmp, url]
+    end
+
+    stdout, stderr, status = Open3.capture3(*cmd)
     raise "Falha no yt-dlp: #{stderr.strip}" unless status.success?
-    raise 'Arquivo baixado vazio' if File.zero?(path)
-    path
+    raise 'Arquivo baixado vazio' if File.zero?(tmp)
+    tmp
   end
 
   def self.trim_video(input_path, start_s, dur_s)
@@ -72,7 +82,7 @@ module UtilTools
     i1 = MiniMagick::Image.open(path1)
     i2 = MiniMagick::Image.open(path2)
     h  = [i1.height, i2.height].min
-    i1.resize "x#{h}" 
+    i1.resize "x#{h}"
     i2.resize "x#{h}"
     result = i1.composite(i2) { |c| c.append true }
     out = File.join(Dir.tmpdir, "fus_#{SecureRandom.hex}.png")
@@ -83,17 +93,17 @@ module UtilTools
 end
 
 COMMANDS = {
-  '/download <url>'      => 'Baixa vídeo do YouTube',
-  '/trim <start> <dur>'  => 'Corta vídeo',
-  '/convert <fmt>'       => 'Converte vídeo',
-  '/adjustaudio <s> <v>' => 'Ajusta áudio',
-  '/qrcode <texto>'      => 'Gera QR Code',
-  '/removebg'            => 'Remove fundo da última imagem',
-  '/fusion'              => 'Funde 2 últimas imagens enviadas',
-  '/help'                => 'Mostra ajuda'
+  '/download <url> [audio]' => 'Baixa vídeo (mp4) ou áudio (mp3) se usar “audio”',
+  '/trim <start> <dur>'     => 'Corta vídeo',
+  '/convert <fmt>'          => 'Converte vídeo',
+  '/adjustaudio <s> <v>'    => 'Ajusta áudio',
+  '/qrcode <texto>'         => 'Gera QR Code',
+  '/removebg'               => 'Remove fundo da última imagem',
+  '/fusion'                 => 'Funde 2 últimas imagens enviadas',
+  '/help'                   => 'Mostra ajuda'
 }
 
-# Garante que long polling seja usado
+# Garante long polling
 Telegram::Bot::Client.new(TOKEN).api.delete_webhook
 
 Telegram::Bot::Client.run(TOKEN) do |bot|
@@ -122,17 +132,20 @@ Telegram::Bot::Client.run(TOKEN) do |bot|
     begin
       case cmd
       when '/start', '/help'
-        list = COMMANDS.map { |c, d| "#{c} - #{d}" }.join("\n")
-        bot.api.send_message(chat_id: msg.chat.id, text: list)
+        help = COMMANDS.map { |c, d| "#{c} – #{d}" }.join("\n")
+        bot.api.send_message(chat_id: msg.chat.id, text: help)
 
       when '/download'
-        url = args.first
-        bot.api.send_message(chat_id: msg.chat.id, text: "Baixando vídeo: #{url}")
-        path = UtilTools.download_youtube(url)
+        url       = args[0]
+        audio_flag = args[1]&.downcase == 'audio'
+        bot.api.send_message(chat_id: msg.chat.id,
+                             text: audio_flag ? "Baixando áudio: #{url}" : "Baixando vídeo: #{url}")
+        path = UtilTools.download_youtube(url, audio_only: audio_flag)
         @last_file = path
+        mime = audio_flag ? 'audio/mpeg' : 'video/mp4'
         File.open(path, 'rb') do |f|
           bot.api.send_document(chat_id: msg.chat.id,
-                                document: Faraday::UploadIO.new(f, 'video/mp4'))
+                                document: Faraday::UploadIO.new(f, mime))
         end
 
       when '/trim'
@@ -145,7 +158,7 @@ Telegram::Bot::Client.run(TOKEN) do |bot|
         end
 
       when '/convert'
-        fmt = args.first
+        fmt  = args.first
         path = UtilTools.convert_format(@last_file, fmt)
         @last_file = path
         mime = fmt == 'mp3' ? 'audio/mpeg' : "video/#{fmt}"
@@ -182,7 +195,8 @@ Telegram::Bot::Client.run(TOKEN) do |bot|
 
       when '/fusion'
         if @photo_queue.size < 2
-          bot.api.send_message(chat_id: msg.chat.id, text: 'Envie 2 imagens antes de /fusion')
+          bot.api.send_message(chat_id: msg.chat.id,
+                               text: 'Envie 2 imagens antes de /fusion')
         else
           paths = @photo_queue.map do |fid|
             file_obj  = bot.api.get_file(file_id: fid)
@@ -202,7 +216,8 @@ Telegram::Bot::Client.run(TOKEN) do |bot|
         end
 
       else
-        bot.api.send_message(chat_id: msg.chat.id, text: 'Comando não reconhecido. /help')
+        bot.api.send_message(chat_id: msg.chat.id,
+                             text: 'Comando não reconhecido. Use /help')
       end
 
     rescue => e
