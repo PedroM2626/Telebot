@@ -13,7 +13,7 @@ gem 'rqrcode'
 gem 'faraday'
 gem 'rqrcode_png'
 gem 'remove_bg'
-gem 'dotenv', groups: [:development, :test]
+gem 'dotenv'
 
 
 
