@@ -105,9 +105,15 @@ Os testes usam `RUN_BOT=false` para não iniciar o long polling. Também usam st
 Build e run local:
 
 ```bash
-docker build -t telebot .
+# Use -f dockerfile, pois o arquivo não se chama Dockerfile
+docker build --pull --no-cache -t telebot -f dockerfile .
 docker run --rm -e TELEBOT_TOKEN=xxxx telebot
 ```
+
+Observações:
+
+- Em Windows, certifique-se de que o Docker Desktop está em execução (WSL2 habilitado). Se o build falhar com erro de pipe/named pipe, abra o Docker Desktop e tente novamente.
+- A imagem foi migrada para multi-stage com base `ruby:3.3-alpine3.20`, instalando apenas dependências de runtime no estágio final e executando `apk upgrade --no-cache` para reduzir CVEs.
 
 ## Deploy
 

@@ -1,37 +1,54 @@
-FROM ruby:3.3.4-slim-bookworm
+FROM ruby:3.3-alpine3.20 AS builder
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 
 WORKDIR /app
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
+# Dependências de build (removidas no estágio final)
+RUN apk upgrade --no-cache \
+    && apk add --no-cache \
+      build-base \
+      pkgconfig \
+      imagemagick-dev \
+      ca-certificates \
+      git
 
-# Instala dependências do sistema (incluindo ffmpeg, imagemagick e Python para yt-dlp)
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends \
-       ca-certificates \
-       build-essential \
-       imagemagick libmagickwand-dev libmagickcore-dev \
-       ffmpeg python3 python3-pip \
-    && pip3 install --no-cache-dir yt-dlp \
-    && rm -rf /var/lib/apt/lists/*
-
-# Pré-instala gems para melhor cache
+# Instala gems com cache otimizado
 COPY Gemfile Gemfile.lock ./
 RUN gem install bundler \
     && bundle config set without 'development test' \
     && bundle install --jobs 4 --retry 3
 
-# Copia arquivos da aplicação
+# Copia a aplicação
 COPY . /app
 
-# Nada
+FROM ruby:3.3-alpine3.20 AS runtime
 
-# Executa com usuário sem privilégios
-RUN useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /app
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+WORKDIR /app
+
+# Somente dependências de runtime (menos superfície para CVEs)
+RUN apk upgrade --no-cache \
+    && apk add --no-cache \
+      ca-certificates \
+      tzdata \
+      ffmpeg \
+      imagemagick \
+      python3 \
+      yt-dlp
+
+# Reutiliza as gems já compiladas
+COPY --from=builder /usr/local/bundle /usr/local/bundle
+
+# Copia código-fonte
+COPY . /app
+
+# Usuário não root
+RUN adduser -D -h /home/appuser appuser \
+  && chown -R appuser:appuser /app
 USER appuser
 
-# Executa o bot
 CMD ["ruby", "bot.rb"]
