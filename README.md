@@ -4,7 +4,7 @@ Bot de Telegram com utilitários de mídia e imagem: download do YouTube (vídeo
 
 ## Requisitos
 
-- Ruby 3.1+
+- Ruby 3.3+
 - ffmpeg
 - ImageMagick (com `libmagickwand-dev` quando necessário)
 - Python 3 + `yt-dlp`
