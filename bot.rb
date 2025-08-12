@@ -1,4 +1,12 @@
-ENV['SSL_CERT_FILE'] ||= 'C:\\cacert.pem'
+if ENV['SSL_CERT_FILE'].to_s.strip.empty?
+  begin
+    if Gem.win_platform? && File.exist?('C:\\cacert.pem')
+      ENV['SSL_CERT_FILE'] = 'C:\\cacert.pem'
+    end
+  rescue StandardError
+    # não bloqueia a execução se a detecção falhar
+  end
+end
 
 require 'dotenv/load'
 require 'telegram/bot'
