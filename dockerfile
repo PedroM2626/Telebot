@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copia arquivos da aplicação
 COPY . /app
 
-# Instala gems via Bundler
-RUN gem install bundler && bundle install
+# Instala gems via Bundler (inclui grupos de produção)
+RUN gem install bundler && bundle install --without development test
 
 # Executa o bot
 CMD ["ruby", "bot.rb"]

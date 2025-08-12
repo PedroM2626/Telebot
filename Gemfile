@@ -6,7 +6,6 @@ source "https://rubygems.org"
 
 # Gemfile
 gem 'telegram-bot-ruby'
-gem 'youtube-dl.rb'
 gem 'streamio-ffmpeg'
 gem 'mini_magick'
 gem 'rqrcode'
@@ -14,6 +13,13 @@ gem 'faraday'
 gem 'rqrcode_png'
 gem 'remove_bg'
 gem 'dotenv'
+
+group :development, :test do
+  gem 'rspec'
+  gem 'webmock'
+  gem 'timecop'
+  gem 'simplecov', require: false
+end
 
 
 

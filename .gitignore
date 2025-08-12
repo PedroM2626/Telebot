@@ -1,3 +1,27 @@
+# Ruby
+/.bundle/
+/vendor/bundle/
+/.yardoc
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/tmp/
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# RSpec
+.rspec_status
+
 # Ignore .env files
 .env
 # Diretório de arquivos temporários
